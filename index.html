@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%230d1117%22/%3E%3Cpath d=%22M7 16h3l3-7 4 14 3-9 2 2h3%22 fill=%22none%22 stroke=%22%233fb950%22 stroke-width=%222.2%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
 <title>Ghostty Theme Catalog — 463 themes</title>
 <style>
   :root {
@@ -283,6 +284,10 @@
   .topbar.shrunk { padding: 8px 24px; }
   .topbar.shrunk h1 { font-size: 14px; }
   .topbar.shrunk .eyebrow { display: none; }
+  .navlink { font-family: var(--mono-ui); font-size: 13px; color: var(--accent);
+    text-decoration: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 7px 13px; background: var(--surface); white-space: nowrap; margin-left: auto; }
+  .navlink:hover { background: var(--surface-2); border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -293,6 +298,7 @@
     <h1>Ghostty Theme Catalog · <span class="count">463</span> themes</h1>
   </div>
   <div class="help">press <kbd>?</kbd> for shortcuts</div>
+  <a class="navlink" href="./sounds.html">sound lab →</a>
   <div class="current">current: <strong id="currentTheme">Snazzy</strong></div>
 </div>
 

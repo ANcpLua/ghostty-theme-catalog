@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%230d1117%22/%3E%3Cpath d=%22M7 16h3l3-7 4 14 3-9 2 2h3%22 fill=%22none%22 stroke=%22%233fb950%22 stroke-width=%222.2%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<title>Ghostty Sound Lab — notification chimes</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --surface-2: #21262d;
+    --border: #30363d; --accent: #58a6ff; --accent-green: #3fb950;
+    --warn: #d29922; --danger: #f85149; --muted: #8b949e;
+    --text: #e6edf3; --text-2: #c9d1d9; --purple: #bc8cff;
+    --mono: "MesloLGMDZ Nerd Font Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --mono-ui: ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans);
+    line-height: 1.5; min-height: 100vh; overflow-x: hidden; position: relative; }
+
+  body::before, body::after, .aurora-c {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    filter: blur(110px); opacity: 0.35; will-change: transform;
+  }
+  body::before { background: radial-gradient(circle at 20% 30%, #58a6ff 0%, transparent 35%);
+    animation: aurora1 28s ease-in-out infinite alternate; }
+  body::after { background: radial-gradient(circle at 80% 70%, #bc8cff 0%, transparent 35%);
+    animation: aurora2 34s ease-in-out infinite alternate; }
+  .aurora-c { background: radial-gradient(circle at 50% 90%, #39d353 0%, transparent 40%);
+    animation: aurora3 40s ease-in-out infinite alternate; opacity: 0.22; }
+  @keyframes aurora1 { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(120px,80px) scale(1.2); } }
+  @keyframes aurora2 { 0% { transform: translate(0,0) scale(1.1); } 100% { transform: translate(-100px,-60px) scale(0.95); } }
+  @keyframes aurora3 { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(60px,-90px) scale(1.15); } }
+  @media (prefers-reduced-motion: reduce) {
+    body::before, body::after, .aurora-c { animation: none; }
+  }
+
+  .topbar, .controls, .wrap { position: relative; z-index: 1; }
+  .topbar { position: sticky; top: 0; z-index: 100;
+    background: rgba(13,17,23,0.95); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border); padding: 14px 24px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .eyebrow { font-family: var(--mono-ui); font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); }
+  h1 { margin: 2px 0 0; font-size: 19px; font-weight: 600; }
+  h1 .count { color: var(--accent-green); }
+  .spacer { flex: 1; }
+  .navlink { font-family: var(--mono-ui); font-size: 13px; color: var(--accent);
+    text-decoration: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 7px 13px; background: var(--surface); white-space: nowrap; }
+  .navlink:hover { background: var(--surface-2); border-color: var(--accent); }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 22px 24px 80px; }
+
+  .note { border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    background: var(--surface); border-radius: 6px; padding: 12px 16px;
+    font-size: 13px; color: var(--text-2); margin-bottom: 22px; }
+  .note strong { color: var(--text); }
+
+  .stage { border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+    padding: 18px; margin-bottom: 24px; }
+  .stage-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .stage-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
+  .stage-head .sub { font-family: var(--mono-ui); font-size: 12px; color: var(--muted); }
+
+  canvas#scope { width: 100%; height: 150px; display: block; border-radius: 6px;
+    background: #0a0d12; border: 1px solid var(--border); }
+
+  .readout { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 10px;
+    font-family: var(--mono-ui); font-size: 12px; color: var(--muted); }
+  .readout b { color: var(--text-2); font-weight: 600; }
+
+  .sliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 14px 22px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .slider label { display: flex; justify-content: space-between; font-family: var(--mono-ui);
+    font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .slider label b { color: var(--text-2); font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .btn { padding: 9px 16px; border-radius: 6px; font-family: var(--mono-ui); font-size: 13px;
+    background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+    cursor: pointer; }
+  .btn:hover { background: var(--border); }
+  .btn.primary { background: var(--accent-green); color: #0d1117; border-color: var(--accent-green);
+    font-weight: 600; }
+  .btn.primary:hover { background: #2ea043; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .card { border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+    padding: 13px 14px; cursor: pointer; transition: border-color .15s, transform .15s; }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card.active { border-color: var(--accent-green); box-shadow: 0 0 0 2px rgba(63,185,80,.22); }
+  .card h3 { margin: 0 0 3px; font-size: 14px; font-weight: 600; }
+  .card p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .card .len { font-family: var(--mono-ui); font-size: 11px; color: var(--accent); margin-top: 7px; }
+
+  h2.section { font-size: 15px; margin: 30px 0 12px; font-weight: 600; }
+  h2.section span { font-family: var(--mono-ui); font-size: 12px; color: var(--muted);
+    font-weight: 400; margin-left: 8px; }
+
+  .drop { border: 2px dashed var(--border); border-radius: 10px; padding: 26px;
+    text-align: center; color: var(--muted); font-size: 13px; transition: all .15s; }
+  .drop.over { border-color: var(--accent-green); background: rgba(63,185,80,.06); color: var(--text); }
+  .drop b { color: var(--text-2); }
+
+  .cmd { font-family: var(--mono); font-size: 12px; background: #0a0d12; color: var(--text-2);
+    border: 1px solid var(--border); border-radius: 6px; padding: 11px 13px;
+    white-space: pre-wrap; word-break: break-all; margin-top: 12px; }
+
+  table.tones { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.tones th { text-align: left; font-family: var(--mono-ui); font-size: 11px;
+    text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  table.tones td { padding: 7px 10px; border-bottom: 1px solid #1c2128; vertical-align: top; }
+  table.tones td.bank { font-family: var(--mono-ui); color: var(--purple); white-space: nowrap; }
+  table.tones td.names { font-family: var(--mono); color: var(--text-2); line-height: 1.9; }
+  .tone { display: inline-block; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 7px; margin: 0 4px 4px 0; cursor: pointer; font-size: 12px; }
+  .tone:hover { border-color: var(--accent); color: var(--accent); }
+
+  .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--surface-2); border: 1px solid var(--accent-green); color: var(--text);
+    padding: 10px 20px; border-radius: 7px; font-family: var(--mono-ui); font-size: 13px;
+    opacity: 0; pointer-events: none; transition: all .2s; z-index: 200; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="aurora-c"></div>
+
+<div class="topbar">
+  <div>
+    <div class="eyebrow">ghostty / sounds / lab</div>
+    <h1>Ghostty Sound Lab · <span class="count">10</span> chimes</h1>
+  </div>
+  <div class="spacer"></div>
+  <a class="navlink" href="./index.html">← 463 themes</a>
+</div>
+
+<div class="wrap">
+
+  <div class="note">
+    Every chime here is <strong>synthesized in your browser</strong> with the Web Audio API — no audio
+    files are shipped or uploaded. Shape one with the sliders, then <strong>Download .wav</strong> and
+    point your notification hook at it. Dropping your own file below decodes it locally for comparison;
+    it never leaves the machine.
+  </div>
+
+  <div class="stage">
+    <div class="stage-head">
+      <h2 id="s-name">Bloom</h2>
+      <div class="sub" id="s-blurb">soft major arpeggio</div>
+    </div>
+    <canvas id="scope" width="1600" height="300"></canvas>
+    <div class="readout">
+      <span>length <b id="r-len">—</b></span>
+      <span>peak <b id="r-peak">—</b></span>
+      <span>RMS <b id="r-rms">—</b></span>
+      <span>rate <b id="r-rate">44.1 kHz</b></span>
+      <span>channels <b id="r-ch">2</b></span>
+    </div>
+
+    <div class="sliders">
+      <div class="slider">
+        <label>repeats <b id="v-rep">3</b></label>
+        <input type="range" id="i-rep" min="1" max="6" step="1" value="3">
+      </div>
+      <div class="slider">
+        <label>gap between hits <b id="v-gap">0.50 s</b></label>
+        <input type="range" id="i-gap" min="0" max="1.2" step="0.05" value="0.5">
+      </div>
+      <div class="slider">
+        <label>pitch <b id="v-tr">0 st</b></label>
+        <input type="range" id="i-tr" min="-12" max="12" step="1" value="0">
+      </div>
+      <div class="slider">
+        <label>decay <b id="v-dec">1.00x</b></label>
+        <input type="range" id="i-dec" min="0.4" max="2.5" step="0.05" value="1">
+      </div>
+      <div class="slider">
+        <label>peak level <b id="v-pk">-3.0 dBFS</b></label>
+        <input type="range" id="i-pk" min="-24" max="-1" step="0.5" value="-3">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn primary" id="b-play">▶ Play</button>
+      <button class="btn" id="b-dl">⬇ Download .wav</button>
+      <button class="btn" id="b-cmd">⧉ Copy install command</button>
+    </div>
+    <div class="cmd" id="cmdbox"></div>
+  </div>
+
+  <h2 class="section">Presets <span>click to load — arrow keys to step through</span></h2>
+  <div class="grid" id="presets"></div>
+
+  <h2 class="section">Compare with a local file <span>decoded in-browser, never uploaded</span></h2>
+  <div class="drop" id="drop">
+    Drop an audio file here — <b>.wav .aiff .m4a .mp3 .caf</b><br>
+    e.g. <b>~/.config/ghostty/sounds/claude-done.wav</b> to see your current chime next to these
+  </div>
+
+  <h2 class="section">macOS system tones <span>names only — audio stays on your Mac</span></h2>
+  <div class="stage" style="padding:6px 4px">
+    <table class="tones" id="tonetable">
+      <thead><tr><th style="width:120px">Bank</th><th>Tone — click to copy its install command</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+(() => {
+
+const SR = 44100;
+
+// A preset is a set of inharmonic partials struck as one or more notes.
+// [ratio, gain, decayMultiplier]
+const PRESETS = [
+  { id:"bloom", name:"Bloom", blurb:"soft major arpeggio",
+    base:523.25, notes:[0,4,7], noteGap:0.09, attack:0.006, decay:1.1, wave:"sine",
+    partials:[[1,1,1],[2,0.28,0.7],[3,0.1,0.5],[4.2,0.05,0.35]] },
+
+  { id:"chime", name:"Chime", blurb:"struck bell, long tail",
+    base:659.25, notes:[0], noteGap:0, attack:0.004, decay:2.6, wave:"sine",
+    partials:[[1,1,1],[2.76,0.42,0.8],[5.4,0.19,0.55],[8.93,0.09,0.4],[13.3,0.04,0.28]] },
+
+  { id:"complete", name:"Complete", blurb:"two-note rise, clipped",
+    base:587.33, notes:[0,7], noteGap:0.11, attack:0.003, decay:0.5, wave:"sine",
+    partials:[[1,1,1],[2,0.34,0.7],[3,0.14,0.45]] },
+
+  { id:"milestone", name:"Milestone", blurb:"three-note rise with shimmer",
+    base:523.25, notes:[0,5,12], noteGap:0.13, attack:0.005, decay:1.5, wave:"sine",
+    partials:[[1,1,1],[2,0.3,0.75],[4,0.13,0.5],[6.1,0.06,0.3]] },
+
+  { id:"droplet", name:"Droplet", blurb:"single high ping",
+    base:1046.5, notes:[0], noteGap:0, attack:0.002, decay:0.65, wave:"sine",
+    partials:[[1,1,1],[2.4,0.2,0.5],[4.8,0.07,0.3]] },
+
+  { id:"handoff", name:"Handoff", blurb:"warm descending pair",
+    base:440, notes:[7,0], noteGap:0.16, attack:0.008, decay:1.4, wave:"sine",
+    partials:[[1,1,1],[2,0.36,0.8],[3.01,0.12,0.5],[4,0.06,0.35]] },
+
+  { id:"marimba", name:"Marimba", blurb:"woody, fast decay",
+    base:783.99, notes:[0], noteGap:0, attack:0.002, decay:0.55, wave:"triangle",
+    partials:[[1,1,1],[3.9,0.3,0.4],[9.2,0.1,0.22]] },
+
+  { id:"glass", name:"Glass", blurb:"inharmonic, airy",
+    base:880, notes:[0], noteGap:0, attack:0.003, decay:1.9, wave:"sine",
+    partials:[[1,0.9,1],[2.32,0.5,0.85],[3.79,0.3,0.6],[6.11,0.16,0.42],[9.4,0.07,0.3]] },
+
+  { id:"tritone", name:"Tri-Tone", blurb:"the classic three-note",
+    base:698.46, notes:[0,4,9], noteGap:0.1, attack:0.003, decay:0.7, wave:"sine",
+    partials:[[1,1,1],[2,0.25,0.65],[3,0.09,0.4]] },
+
+  { id:"pulse", name:"Pulse", blurb:"low body, high tick",
+    base:196, notes:[0,24], noteGap:0.02, attack:0.004, decay:0.9, wave:"sine",
+    partials:[[1,1,1],[2,0.4,0.6],[5.1,0.08,0.25]] },
+];
+
+const MACOS_TONES = [
+  ["System",  "Basso Blow Bottle Frog Funk Glass Hero Morse Ping Pop Purr Sosumi Submarine Tink"],
+  ["Modern",  "Aurora Bamboo Chord Circles Complete Hello Input Keys Note Popcorn Pulse Synth"],
+  ["Classic", "Alert Anticipate Bell Bloom Calypso Chime Descent Ding Electronic Fanfare Glass Horn Ladder Minuet Noir Spell Suspense Swish Swoosh Telegraph Tiptoes Tri-Tone Tweet Typewriters Update"],
+  ["Encore",  "Antic Cheers Droplet Handoff Milestone Passage Portal Rattle Rebound Slide Welcome"],
+];
+
+let current = PRESETS[0];
+let buffer = null;
+let ctx = null;
+let source = null;
+let playStart = 0;
+let raf = 0;
+let localBuffer = null;   // dropped file, drawn as a ghost trace
+
+const $ = (id) => document.getElementById(id);
+const opts = () => ({
+  repeats: +$("i-rep").value,
+  gap:     +$("i-gap").value,
+  transpose: +$("i-tr").value,
+  decayMul:  +$("i-dec").value,
+  peakDb:    +$("i-pk").value,
+});
+
+function audioCtx() {
+  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if (ctx.state === "suspended") ctx.resume();
+  return ctx;
+}
+
+function hitLength(p, o) {
+  return (p.notes.length - 1) * p.noteGap + p.decay * o.decayMul;
+}
+function totalLength(p, o) {
+  const h = hitLength(p, o);
+  return o.repeats * h + (o.repeats - 1) * o.gap + 0.05;
+}
+
+function strike(dst, p, o, t0) {
+  const base = p.base * Math.pow(2, o.transpose / 12);
+  p.notes.forEach((semi, ni) => {
+    const f = base * Math.pow(2, semi / 12);
+    const t = t0 + ni * p.noteGap;
+    p.partials.forEach(([ratio, gain, dm]) => {
+      const freq = f * ratio;
+      if (freq > 18000) return;                 // above hearing, skip the cost
+      const osc = dst.createOscillator();
+      osc.type = p.wave;
+      osc.frequency.value = freq;
+      const g = dst.createGain();
+      const d = p.decay * o.decayMul * dm;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(gain, t + p.attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      osc.connect(g).connect(dst.destination);
+      osc.start(t);
+      osc.stop(t + d + 0.02);
+    });
+  });
+}
+
+async function render(p, o) {
+  const len = Math.ceil(SR * totalLength(p, o));
+  const off = new OfflineAudioContext(2, len, SR);
+  const h = hitLength(p, o);
+  for (let i = 0; i < o.repeats; i++) strike(off, p, o, i * (h + o.gap));
+  const buf = await off.startRendering();
+  normalize(buf, o.peakDb);
+  return buf;
+}
+
+function normalize(buf, peakDb) {
+  const target = Math.pow(10, peakDb / 20);
+  let peak = 0;
+  for (let c = 0; c < buf.numberOfChannels; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > peak) peak = a; }
+  }
+  if (peak === 0) return;
+  const k = target / peak;
+  for (let c = 0; c < buf.numberOfChannels; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < d.length; i++) d[i] *= k;
+  }
+}
+
+function stats(buf) {
+  const d = buf.getChannelData(0);
+  let peak = 0, sum = 0;
+  for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > peak) peak = a; sum += d[i] * d[i]; }
+  const rms = Math.sqrt(sum / d.length);
+  const db = (v) => (v <= 1e-6 ? "-inf" : (20 * Math.log10(v)).toFixed(1));
+  return { peak: db(peak) + " dBFS", rms: db(rms) + " dBFS", len: buf.duration.toFixed(2) + " s" };
+}
+
+// ---- visualiser -------------------------------------------------------
+
+function peaksOf(buf, cols) {
+  const d = buf.getChannelData(0);
+  const step = d.length / cols;
+  const out = new Float32Array(cols);
+  for (let i = 0; i < cols; i++) {
+    let m = 0;
+    const s = Math.floor(i * step), e = Math.min(d.length, Math.floor((i + 1) * step));
+    for (let j = s; j < e; j++) { const a = Math.abs(d[j]); if (a > m) m = a; }
+    out[i] = m;
+  }
+  return out;
+}
+
+function draw(progress) {
+  const cv = $("scope"), g = cv.getContext("2d");
+  const W = cv.width, H = cv.height, mid = H / 2;
+  g.clearRect(0, 0, W, H);
+
+  // grid
+  g.strokeStyle = "#1c2128"; g.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = (H / 4) * i; g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke();
+  }
+
+  if (localBuffer) {
+    const lp = peaksOf(localBuffer, 600);
+    g.fillStyle = "rgba(188,140,255,0.28)";
+    for (let i = 0; i < lp.length; i++) {
+      const x = (i / lp.length) * W, h = lp[i] * mid * 0.95;
+      g.fillRect(x, mid - h, Math.max(1, W / lp.length - 1), h * 2);
+    }
+  }
+
+  if (!buffer) return;
+  const pk = peaksOf(buffer, 600);
+  const cut = progress == null ? -1 : progress * pk.length;
+  for (let i = 0; i < pk.length; i++) {
+    const x = (i / pk.length) * W, h = pk[i] * mid * 0.95;
+    g.fillStyle = (cut >= 0 && i <= cut) ? "#3fb950" : "#58a6ff";
+    g.fillRect(x, mid - h, Math.max(1, W / pk.length - 1), h * 2);
+  }
+  if (cut >= 0) {
+    const x = progress * W;
+    g.strokeStyle = "#f0fb8c"; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke();
+  }
+}
+
+function tick() {
+  if (!source) return;
+  const p = (audioCtx().currentTime - playStart) / buffer.duration;
+  if (p >= 1) { stop(); draw(null); return; }
+  draw(p);
+  raf = requestAnimationFrame(tick);
+}
+
+function stop() {
+  if (source) { try { source.stop(); } catch (e) {} source = null; }
+  cancelAnimationFrame(raf);
+  $("b-play").textContent = "▶ Play";
+}
+
+function play() {
+  if (source) { stop(); draw(null); return; }
+  if (!buffer) return;
+  const a = audioCtx();
+  source = a.createBufferSource();
+  source.buffer = buffer;
+  source.connect(a.destination);
+  source.onended = () => { source = null; $("b-play").textContent = "▶ Play"; };
+  playStart = a.currentTime;
+  source.start();
+  $("b-play").textContent = "■ Stop";
+  raf = requestAnimationFrame(tick);
+}
+
+// ---- WAV export -------------------------------------------------------
+
+function toWav(buf) {
+  const ch = buf.numberOfChannels, n = buf.length;
+  const data = new DataView(new ArrayBuffer(44 + n * ch * 2));
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) data.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); data.setUint32(4, 36 + n * ch * 2, true); str(8, "WAVE");
+  str(12, "fmt "); data.setUint32(16, 16, true); data.setUint16(20, 1, true);
+  data.setUint16(22, ch, true); data.setUint32(24, buf.sampleRate, true);
+  data.setUint32(28, buf.sampleRate * ch * 2, true); data.setUint16(32, ch * 2, true);
+  data.setUint16(34, 16, true); str(36, "data"); data.setUint32(40, n * ch * 2, true);
+  const chans = [];
+  for (let c = 0; c < ch; c++) chans.push(buf.getChannelData(c));
+  let off = 44;
+  for (let i = 0; i < n; i++) {
+    for (let c = 0; c < ch; c++) {
+      const s = Math.max(-1, Math.min(1, chans[c][i]));
+      data.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      off += 2;
+    }
+  }
+  return new Blob([data], { type: "audio/wav" });
+}
+
+function filename() {
+  const o = opts();
+  return `claude-${current.id}-x${o.repeats}.wav`;
+}
+
+function download() {
+  if (!buffer) return;
+  const url = URL.createObjectURL(toWav(buffer));
+  const a = document.createElement("a");
+  a.href = url; a.download = filename();
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast("saved " + filename());
+}
+
+function installCmd() {
+  return `mv ~/Downloads/${filename()} ~/.config/ghostty/sounds/claude-done.wav`;
+}
+
+// ---- wiring -----------------------------------------------------------
+
+let renderSeq = 0;
+async function refresh() {
+  const seq = ++renderSeq;
+  const o = opts();
+  $("v-rep").textContent = o.repeats;
+  $("v-gap").textContent = o.gap.toFixed(2) + " s";
+  $("v-tr").textContent  = (o.transpose > 0 ? "+" : "") + o.transpose + " st";
+  $("v-dec").textContent = o.decayMul.toFixed(2) + "x";
+  $("v-pk").textContent  = o.peakDb.toFixed(1) + " dBFS";
+  $("s-name").textContent = current.name;
+  $("s-blurb").textContent = current.blurb;
+  $("cmdbox").textContent = installCmd();
+
+  const b = await render(current, o);
+  if (seq !== renderSeq) return;            // a newer render already started
+  buffer = b;
+  const s = stats(buffer);
+  $("r-len").textContent = s.len;
+  $("r-peak").textContent = s.peak;
+  $("r-rms").textContent = s.rms;
+  draw(null);
+}
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+async function copy(text, label) {
+  try { await navigator.clipboard.writeText(text); toast(label); }
+  catch (e) { toast("clipboard blocked — select the text instead"); }
+}
+
+function buildPresets() {
+  const host = $("presets");
+  PRESETS.forEach((p) => {
+    const el = document.createElement("div");
+    el.className = "card" + (p.id === current.id ? " active" : "");
+    el.dataset.id = p.id;
+    el.innerHTML = `<h3></h3><p></p><div class="len"></div>`;
+    el.querySelector("h3").textContent = p.name;
+    el.querySelector("p").textContent = p.blurb;
+    el.querySelector(".len").textContent =
+      p.notes.length + (p.notes.length > 1 ? " notes" : " note") + " · " + p.partials.length + " partials";
+    el.addEventListener("click", async () => {
+      current = p;
+      document.querySelectorAll(".card").forEach((c) => c.classList.toggle("active", c.dataset.id === p.id));
+      stop();
+      await refresh();
+      play();
+    });
+    host.appendChild(el);
+  });
+}
+
+function buildToneTable() {
+  const tb = $("tonetable").querySelector("tbody");
+  MACOS_TONES.forEach(([bank, names]) => {
+    const tr = document.createElement("tr");
+    const td1 = document.createElement("td"); td1.className = "bank"; td1.textContent = bank;
+    const td2 = document.createElement("td"); td2.className = "names";
+    names.split(" ").forEach((n) => {
+      const s = document.createElement("span");
+      s.className = "tone"; s.textContent = n;
+      s.addEventListener("click", () => copy(`claude-sound set ${n} 3`, `copied: claude-sound set ${n} 3`));
+      td2.appendChild(s);
+    });
+    tr.append(td1, td2); tb.appendChild(tr);
+  });
+}
+
+function setupDrop() {
+  const dz = $("drop");
+  const over = (on) => (e) => { e.preventDefault(); dz.classList.toggle("over", on); };
+  dz.addEventListener("dragover", over(true));
+  dz.addEventListener("dragleave", over(false));
+  dz.addEventListener("drop", async (e) => {
+    e.preventDefault(); dz.classList.remove("over");
+    const f = e.dataTransfer.files[0];
+    if (!f) return;
+    try {
+      const buf = await audioCtx().decodeAudioData(await f.arrayBuffer());
+      localBuffer = buf;
+      const s = stats(buf);
+      dz.innerHTML = `<b>${f.name}</b> — ${s.len}, peak ${s.peak}, RMS ${s.rms}
+        <br><span style="font-size:12px">drawn in purple behind the synth trace · drop another to replace</span>`;
+      draw(null);
+      const src = audioCtx().createBufferSource();
+      src.buffer = buf; src.connect(audioCtx().destination); src.start();
+    } catch (err) {
+      dz.innerHTML = `could not decode <b>${f.name}</b> — the browser has no decoder for this format`;
+    }
+  });
+}
+
+$("b-play").addEventListener("click", play);
+$("b-dl").addEventListener("click", download);
+$("b-cmd").addEventListener("click", () => copy(installCmd(), "install command copied"));
+["i-rep", "i-gap", "i-tr", "i-dec", "i-pk"].forEach((id) =>
+  $(id).addEventListener("input", refresh));
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  const i = PRESETS.indexOf(current);
+  if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+    document.querySelectorAll(".card")[(i + 1) % PRESETS.length].click(); e.preventDefault();
+  } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+    document.querySelectorAll(".card")[(i - 1 + PRESETS.length) % PRESETS.length].click(); e.preventDefault();
+  } else if (e.key === " ") { play(); e.preventDefault(); }
+});
+
+buildPresets();
+buildToneTable();
+setupDrop();
+refresh();
+
+})();
+</script>
+</body>
+</html>
